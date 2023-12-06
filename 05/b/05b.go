@@ -4,20 +4,25 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"math"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 )
 
 type mappingRange struct {
-	destination int
-	source      int
-	ranges      int
+	destination uint64
+	source      uint64
+	ranges      uint64
+}
+
+type seedRange struct {
+	start  uint64
+	ranges uint64
 }
 
 type almanac struct {
-	seeds    []int
+	seeds    []seedRange
 	mappings [][]mappingRange
 }
 
@@ -26,17 +31,22 @@ func main() {
 	lines := read("input/1")
 	almanac := parse(lines)
 
-	mapped := make([]int, 0)
-	for _, seed := range almanac.seeds {
-		m := seed
-		for _, mapping := range almanac.mappings {
-			m = resolve(m, mapping)
+	var result uint64
+	result = math.MaxUint64
+	for _, seedRange := range almanac.seeds {
+		fmt.Printf("range: %+v\n", seedRange)
+		for i := uint64(0); i < seedRange.ranges; i++ {
+			m := seedRange.start + i
+			for _, mapping := range almanac.mappings {
+				m = resolve(m, mapping)
+			}
+			if m < result {
+				result = m
+			}
 		}
-		mapped = append(mapped, m)
 	}
 
-	min := slices.Min(mapped)
-	fmt.Println(min)
+	fmt.Println(result)
 }
 
 func read(file string) []string {
@@ -62,7 +72,7 @@ func read(file string) []string {
 }
 
 func parse(lines []string) almanac {
-	seeds := make([]int, 0)
+	seeds := make([]seedRange, 0)
 
 	mappings := make([][]mappingRange, 0)
 	mappings = append(mappings, make([]mappingRange, 0))
@@ -91,9 +101,19 @@ func parse(lines []string) almanac {
 	}
 }
 
-func parseSeeds(line string) []int {
+func parseSeeds(line string) []seedRange {
 	parts := strings.Split(line, ": ")
-	return parseNumbers(parts[1])
+	numbers := parseNumbers(parts[1])
+	result := make([]seedRange, 0)
+	for i, number := range numbers {
+		if i%2 == 1 {
+			continue
+		}
+		start := number
+		ranges := numbers[i+1]
+		result = append(result, seedRange{start: start, ranges: ranges})
+	}
+	return result
 }
 
 func parseMappingRange(line string) (mappingRange, error) {
@@ -104,12 +124,12 @@ func parseMappingRange(line string) (mappingRange, error) {
 	return mappingRange{destination: numbers[0], source: numbers[1], ranges: numbers[2]}, nil
 }
 
-func parseNumbers(rawNumbers string) []int {
+func parseNumbers(rawNumbers string) []uint64 {
 	parts := strings.Split(rawNumbers, " ")
 
-	numbers := make([]int, 0)
+	numbers := make([]uint64, 0)
 	for _, part := range parts {
-		number, err := strconv.Atoi(part)
+		number, err := strconv.ParseUint(part, 10, 64)
 		if err != nil {
 			continue
 		}
@@ -119,7 +139,7 @@ func parseNumbers(rawNumbers string) []int {
 	return numbers
 }
 
-func resolve(number int, mapping []mappingRange) int {
+func resolve(number uint64, mapping []mappingRange) uint64 {
 	mapped := number
 	for _, mappingRange := range mapping {
 		start := mappingRange.source
